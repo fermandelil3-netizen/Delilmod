@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DelilMod – Minecraft Korku Modları</title>
+<style>
+:root{--bg:#09090b;--card:#141418;--tx:#ececf0;--mut:#9a9aa6;--red:#d11f2b;--ln:#26262e;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;line-height:1.5}
+.wrap{max-width:640px;margin:0 auto;padding:18px 14px 40px}
+h1{margin:0;font-size:30px;letter-spacing:2px;color:var(--red);text-shadow:0 0 18px rgba(209,31,43,.55)}
+.sub{color:var(--mut);margin:2px 0 14px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px}
+.pill{background:var(--card);border:1px solid var(--ln);border-radius:999px;padding:7px 13px;font-size:14px;color:var(--tx);text-decoration:none}
+a.tt{border-color:var(--red)}
+.card{background:var(--card);border:1px solid var(--ln);border-radius:14px;padding:14px;margin-bottom:14px}
+.card h2{margin:0 0 6px;font-size:20px}
+.card p{margin:0 0 12px;color:var(--mut);white-space:pre-wrap;word-break:break-word}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,.btn{font:inherit;cursor:pointer;border-radius:10px;border:1px solid var(--ln);background:#1d1d24;color:var(--tx);padding:9px 14px;text-decoration:none}
+button.on,.btn.dl{background:var(--red);border-color:var(--red)}
+.btn.dl{font-weight:600}
+.del{margin-left:auto;color:var(--mut)}
+.eye{color:var(--mut);font-size:14px}
+input,textarea{width:100%;font:inherit;color:var(--tx);background:#0e0e12;border:1px solid var(--ln);border-radius:10px;padding:10px;margin-bottom:8px}
+textarea{min-height:90px;resize:vertical}
+.admin{border-color:var(--red)}
+.admin h3{margin:0 0 10px;color:var(--red)}
+.msg{color:var(--mut);text-align:center;padding:22px 0}
+.foot{text-align:center;margin-top:26px}
+.foot button{background:none;border:none;color:#55555f;font-size:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DELİLMOD</h1>
+  <div class="sub">Minecraft korku modları 🩸</div>
+  <div class="bar">
+    <a class="pill tt" href="https://www.tiktok.com/@delilmod.com" target="_blank" rel="noopener">TikTok: @delilmod.com</a>
+    <span class="pill" id="stat"></span>
+  </div>
+  <div id="admin"></div>
+  <div id="list"><div class="msg">Yükleniyor…</div></div>
+  <div class="foot"><button id="login">Admin</button></div>
+</div>
+
+<script type="module">
+const CONFIG = {
+  apiKey: "AIzaSyDyg7QYpSnrrO6stguoMNjOGoZB_cZUt_g",
+  authDomain: "delilmod.firebaseapp.com",
+  projectId: "delilmod",
+  appId: "1:290643930784:web:98c5544b1f5e38197763c5"
+};
+const ADMIN_UID = "sktmksEU8kfEM4zjQ7KKvIlR2Nh1";
+
+import {initializeApp} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {getAuth,onAuthStateChanged,signInAnonymously,signInWithEmailAndPassword,signOut} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import {getFirestore,collection,doc,addDoc,setDoc,deleteDoc,getDocs,query,where,orderBy,onSnapshot,getCountFromServer} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const app=initializeApp(CONFIG),auth=getAuth(app),db=getFirestore(app);
+let user=null,mods=[],counts={},myLikes=new Set(),total=0;
+const isAdmin=()=>user&&user.uid===ADMIN_UID;
+
+async function refresh(){
+  const out={};
+  await Promise.all(mods.map(async m=>{
+    const [l,v]=await Promise.all([
+      getCountFromServer(query(collection(db,"likes"),where("mod","==",m.id))),
+      getCountFromServer(query(collection(db,"views"),where("mod","==",m.id)))
+    ]);
+    out[m.id]={l:l.data().count,v:v.data().count};
+  }));
+  counts=out;
+  if(user){
+    const s=await getDocs(query(collection(db,"likes"),where("uid","==",user.uid)));
+    myLikes=new Set(s.docs.map(d=>d.data().mod));
+  }
+  render();
+}
+
+function render(){
+  $("#stat").textContent="👁 "+Object.values(counts).reduce((a,c)=>a+c.v,0)+" izlenme";
+  const L=$("#list");
+  if(!mods.length){L.innerHTML='<div class="msg">Henüz mod yok.</div>';return;}
+  L.innerHTML=mods.map(m=>{
+    const c=counts[m.id]||{l:0,v:0},liked=myLikes.has(m.id);
+    const link=/^https?:\/\//i.test(m.link||"")?'<a class="btn dl" href="'+esc(m.link)+'" target="_blank" rel="noopener">⬇ İndir</a>':"";
+    return '<div class="card"><h2>'+esc(m.title)+'</h2><p>'+esc(m.desc)+'</p><div class="row">'+
+      '<button data-like="'+esc(m.id)+'" class="'+(liked?"on":"")+'">'+(liked?"❤️":"🤍")+" "+c.l+'</button>'+link+
+      '<span class="eye">👁 '+c.v+'</span>'+
+      (isAdmin()?'<button class="del" data-del="'+esc(m.id)+'">Sil</button>':"")+'</div></div>';
+  }).join("");
+}
+
+function adminBox(){
+  $("#login").textContent=isAdmin()?"Çıkış yap":"Admin";
+  if(!isAdmin()){$("#admin").innerHTML="";return;}
+  $("#admin").innerHTML='<div class="card admin"><h3>Admin: mod yayınla</h3>'+
+    '<input id="t" placeholder="Mod adı" maxlength="80"><textarea id="d" placeholder="Mod açıklaması" maxlength="1500"></textarea>'+
+    '<input id="l" placeholder="İndirme linki (https://...)" inputmode="url"><button class="on" id="pub">Yayınla</button></div>';
+  $("#pub").onclick=async()=>{
+    const title=$("#t").value.trim(),desc=$("#d").value.trim(),link=$("#l").value.trim();
+    if(!title){alert("Mod adı yaz");return;}
+    try{await addDoc(collection(db,"mods"),{title,desc,link,t:Date.now()});$("#t").value=$("#d").value=$("#l").value="";}
+    catch(e){alert("Yayınlanamadı: "+e.message);}
+  };
+}
+
+$("#list").addEventListener("click",async e=>{
+  const lk=e.target.closest("[data-like]"),dl=e.target.closest("[data-del]");
+  if(lk&&user){
+    const id=lk.dataset.like,ref=doc(db,"likes",id+"_"+user.uid);
+    try{
+      if(myLikes.has(id)){await deleteDoc(ref);myLikes.delete(id);counts[id].l--;}
+      else{await setDoc(ref,{mod:id,uid:user.uid});myLikes.add(id);counts[id].l++;}
+      render();
+    }catch(err){alert("Beğeni kaydedilemedi.");}
+  }
+  if(dl&&isAdmin()&&confirm("Bu mod silinsin mi?")){
+    try{await deleteDoc(doc(db,"mods",dl.dataset.del));}catch(err){alert("Silinemedi.");}
+  }
+});
+
+$("#login").onclick=async()=>{
+  if(isAdmin()){await signOut(auth);await signInAnonymously(auth);return;}
+  const email=prompt("Admin e-posta:");if(!email)return;
+  const pass=prompt("Şifre:");if(!pass)return;
+  try{await signInWithEmailAndPassword(auth,email,pass);}catch(e){alert("Giriş başarısız.");}
+};
+
+async function countViews(){
+  if(!user)return;
+  await Promise.all(mods.map(m=>setDoc(doc(db,"views",m.id+"_"+user.uid),{mod:m.id,uid:user.uid}).catch(()=>{})));
+}
+
+onAuthStateChanged(auth,u=>{
+  if(!u){signInAnonymously(auth).catch(()=>{$("#list").innerHTML='<div class="msg">Bağlanılamadı.</div>';});return;}
+  user=u;adminBox();
+  onSnapshot(query(collection(db,"mods"),orderBy("t","desc")),async s=>{
+    mods=s.docs.map(d=>({id:d.id,...d.data()}));
+    adminBox();
+    await countViews();
+    refresh();
+  },()=>{$("#list").innerHTML='<div class="msg">Bağlanılamadı.</div>';});
+});
+</script>
+</body>
+</html>
